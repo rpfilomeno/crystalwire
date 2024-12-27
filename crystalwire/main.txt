@@ -70,45 +70,42 @@ def print_pid2traffic():
     # initialize the list of processes
     processes = []
     for pid, traffic in list(pid2traffic.items()):
+        # `pid` is an integer that represents the process ID
+        # `traffic` is a list of two values: total Upload and Download size in bytes
         try:
-            # `pid` is an integer that represents the process ID
-            # `traffic` is a list of two values: total Upload and Download size in bytes
-            try:
-                # get the process object from psutil
-                p = psutil.Process(pid)
-                # get the name of the process, such as chrome.exe, etc.
-                name = p.name()
-            except psutil.NoSuchProcess:
-                # if process is not found, simply continue to the next PID for now
-                continue
-
-            # get the time the process was spawned
-            try:
-                create_time = datetime.fromtimestamp(p.create_time())
-            except OSError:
-                # system processes, using boot time instead
-                create_time = datetime.fromtimestamp(psutil.boot_time())
-            # construct our dictionary that stores process info
-            process = {
-                "pid": pid,
-                "name": name,
-                # "create_time": create_time,
-                "Upload": traffic[0],
-                "Download": traffic[1],
-            }
-            try:
-                # calculate the upload and download speeds by simply subtracting the old stats from the new stats
-                process["Upload Speed"] = traffic[0] - global_df.at[pid, "Upload"]
-                process["Download Speed  "] = traffic[1] - global_df.at[pid, "Download"]
-            except (KeyError, AttributeError):
-                # If it's the first time running this function, then the speed is the current traffic
-                # You can think of it as if old traffic is 0
-                process["Upload Speed"] = traffic[0]
-                process["Download Speed  "] = traffic[1]
-            # append the process to our processes list
-            processes.append(process)
-        except Exception:
+            # get the process object from psutil
+            p = psutil.Process(pid)
+            # get the name of the process, such as chrome.exe, etc.
+            name = p.name()
+        except psutil.NoSuchProcess:
+            # if process is not found, simply continue to the next PID for now
             continue
+
+        # get the time the process was spawned
+        try:
+            create_time = datetime.fromtimestamp(p.create_time())
+        except OSError:
+            # system processes, using boot time instead
+            create_time = datetime.fromtimestamp(psutil.boot_time())
+        # construct our dictionary that stores process info
+        process = {
+            "pid": pid,
+            "name": name,
+            # "create_time": create_time,
+            "Upload": traffic[0],
+            "Download": traffic[1],
+        }
+        try:
+            # calculate the upload and download speeds by simply subtracting the old stats from the new stats
+            process["Upload Speed"] = traffic[0] - global_df.at[pid, "Upload"]
+            process["Download Speed  "] = traffic[1] - global_df.at[pid, "Download"]
+        except (KeyError, AttributeError):
+            # If it's the first time running this function, then the speed is the current traffic
+            # You can think of it as if old traffic is 0
+            process["Upload Speed"] = traffic[0]
+            process["Download Speed  "] = traffic[1]
+        # append the process to our processes list
+        processes.append(process)
     # construct our Pandas DataFrame
     df = pd.DataFrame(processes)
     try:
@@ -138,15 +135,20 @@ def print_pid2traffic():
         pass
     # clear the screen based on your OS
 
-    if global_df is None:
-        os.system("cls") if "nt" in os.name else os.system("clear")
+    if global_df is not None:
+        if global_df.size == df.size:
+            for i in df.items():
+                print("\033[3A\r")
+        else:
+            os.system("cls") if "nt" in os.name else os.system("clear")
 
-    elif global_df.size != df.size:
+    else:
         os.system("cls") if "nt" in os.name else os.system("clear")
+    # print our dataframe
 
     for i in range(40):
-        print("\r\033[3A\033[3A")
-    # print our dataframe
+        print("\033[3A\r")
+
     print(printing_df.to_string())
     # update the global df to our dataframe
     global_df = df
