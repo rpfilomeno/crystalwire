@@ -4,6 +4,7 @@ from collections import defaultdict
 import os
 from threading import Thread
 import pandas as pd
+import plotille
 
 # get the all network adapter's MAC addresses
 all_macs = {iface.mac for iface in ifaces.values()}
@@ -15,6 +16,8 @@ pid2traffic = defaultdict(lambda: [0, 0])
 global_df = None
 # global boolean for status of the program
 is_program_running = True
+
+global_graph_data = {}
 
 
 def get_size(bytes):
@@ -107,6 +110,14 @@ def print_pid2traffic():
                 process["Download Speed  "] = traffic[1]
             # append the process to our processes list
             processes.append(process)
+
+            if name not in global_graph_data:            
+                global_graph_data[name] = [0] * 65
+            data_speed = int( ((traffic[0] - global_df.at[pid, "Upload"]) + traffic[1] - global_df.at[pid, "Download"])/1024)
+            global_graph_data[name].append(data_speed)
+            if len(global_graph_data[name]) > 65:
+                global_graph_data[name].pop(0)
+
         except Exception:
             continue
     # construct our Pandas DataFrame
@@ -115,13 +126,13 @@ def print_pid2traffic():
         # set the PID as the index of the dataframe
         df = df.set_index("pid")
         # sort by column, feel free to edit this column
-        df.sort_values("Download", inplace=True, ascending=False)
+        df.sort_values("Download Speed  ", inplace=True, ascending=False)
     except KeyError as e:
         # when dataframe is empty
         pass
     # make another copy of the dataframe just for fancy printing
     printing_df = df.copy()
-    printing_df = printing_df.head(20)
+    printing_df = printing_df.head(15)
 
     try:
         # apply the function get_size to scale the stats like '532.6KB/s', etc.
@@ -136,7 +147,7 @@ def print_pid2traffic():
     except KeyError as e:
         # when dataframe is empty again
         pass
-    # clear the screen based on your OS
+    #clear the screen based on your OS
 
     if global_df is None:
         os.system("cls") if "nt" in os.name else os.system("clear")
@@ -144,12 +155,64 @@ def print_pid2traffic():
     elif global_df.size != df.size:
         os.system("cls") if "nt" in os.name else os.system("clear")
 
+
     for i in range(40):
         print("\r\033[3A\033[3A")
-    # print our dataframe
-    print(printing_df.to_string())
+
+    print("CrystalWire 1.0 http://github.com/rpfilomeno/crystalwire", end="\n")
+    plot(df.head(3))
+    stat(printing_df)
     # update the global df to our dataframe
     global_df = df
+
+
+def stat(df: pd.DataFrame):
+
+
+    lines = df.to_string().split("\n")
+    n=0
+    for line in lines:
+        n+=1
+        if n==3:
+            print(f"\033[96m{line}\033[0m")
+        elif n==4:
+            print(f"\033[93m{line}\033[0m")
+        elif n==5:
+            print(f"\033[95m{line}\033[0m")
+        else:
+            print(line)
+
+
+
+def plot(df: pd.DataFrame):
+    colors = ["cyan","yellow","magenta"]
+    fig = plotille.Figure()
+    fig.width=50
+    fig.height=6
+    fig.origin=False
+    fig.x_label="time"
+    fig.y_label="total Kb/s"
+    fig.set_x_limits(min_=0, max_=60)
+    fig.set_y_limits(min_=0, max_=None)
+    
+    
+
+    
+
+    series = []
+    for index, row in df.iterrows():
+        series = global_graph_data[row['name']]
+  
+        n = []
+        for i in range(0,len(series),1):
+            n.append(i)
+        fig.plot(X=n , Y=series, lc=colors[0])
+
+        colors.pop(0)
+
+    print(fig.show())
+
+
 
 
 def print_stats():
