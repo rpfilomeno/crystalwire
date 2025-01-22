@@ -159,7 +159,8 @@ def print_pid2traffic():
     for i in range(40):
         print("\r\033[3A\033[3A")
 
-    print("CrystalWire 1.0 http://github.com/rpfilomeno/crystalwire", end="\n")
+    print("💎 \033[1mCrystalWire\033[0m ✨ 1.0 \033[3mhttp://github.com/rpfilomeno/crystalwire\033[0m\n")
+
     plot(df.head(3))
     stat(printing_df)
     # update the global df to our dataframe

@@ -1,0 +1,10 @@
+numpy==2.2.1
+pandas==2.2.3
+plotille==5.0.0
+psutil==6.1.1
+python-dateutil==2.9.0.post0
+pytz==2024.2
+scapy==2.6.1
+setuptools==75.8.0
+six==1.17.0
+tzdata==2024.2

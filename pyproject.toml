@@ -1,0 +1,7 @@
+[project]
+name = "crystalwire"
+version = "0.1.0"
+description = "Monitor bandwidth usage, per process!
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []
