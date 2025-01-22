@@ -1,4 +1,5 @@
 ![alt text](image.png)
+"It's like Glasswire for Terminals!"
 
 ## Crystalwire
 
