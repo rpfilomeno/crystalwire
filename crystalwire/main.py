@@ -132,7 +132,7 @@ def print_pid2traffic():
         pass
     # make another copy of the dataframe just for fancy printing
     printing_df = df.copy()
-    printing_df = printing_df.head(15)
+    printing_df = printing_df.head(10)
 
     try:
         # apply the function get_size to scale the stats like '532.6KB/s', etc.
@@ -188,13 +188,15 @@ def stat(df: pd.DataFrame):
 def plot(df: pd.DataFrame):
     colors = ["cyan","yellow","magenta"]
     fig = plotille.Figure()
-    fig.width=50
+    fig.width=70
     fig.height=6
     fig.origin=False
     fig.x_label="time"
     fig.y_label="total Kb/s"
     fig.set_x_limits(min_=0, max_=60)
     fig.set_y_limits(min_=0, max_=None)
+    
+
     
     
 
