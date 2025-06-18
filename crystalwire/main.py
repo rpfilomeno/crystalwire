@@ -5,6 +5,10 @@ import os
 from threading import Thread
 import pandas as pd
 import plotille
+import time
+import readchar
+import select
+import sys
 
 # get the all network adapter's MAC addresses
 all_macs = {iface.mac for iface in ifaces.values()}
@@ -68,8 +72,21 @@ def get_connections():
         time.sleep(1)
 
 
-def print_pid2traffic():
+def print_pid2traffic(search_term=None, current_mode="normal", display_search_term=""):
     global global_df
+
+    # --- Screen Clearing and Prompt Display ---
+    os.system("cls") if "nt" in os.name else os.system("clear") # Unconditional clear
+
+    if current_mode == "search":
+        print(f"Search: {display_search_term}_") # Underscore to simulate a cursor
+    else:
+        if search_term: # Persisting filter in normal mode
+            print(f"Filter: {search_term} (Press 'f' to change or ESC to clear)")
+        else:
+            print("Press 'f' to enter search mode.")
+    print("-" * 70) # A separator line
+
     # initialize the list of processes
     processes = []
     for pid, traffic in list(pid2traffic.items()):
@@ -99,29 +116,48 @@ def print_pid2traffic():
                 "Upload": traffic[0],
                 "Download": traffic[1],
             }
-            try:
-                # calculate the upload and download speeds by simply subtracting the old stats from the new stats
-                process["Upload Speed"] = traffic[0] - global_df.at[pid, "Upload"]
-                process["Download Speed  "] = traffic[1] - global_df.at[pid, "Download"]
-            except (KeyError, AttributeError):
-                # If it's the first time running this function, then the speed is the current traffic
-                # You can think of it as if old traffic is 0
-                process["Upload Speed"] = traffic[0]
-                process["Download Speed  "] = traffic[1]
-            # append the process to our processes list
             processes.append(process)
+        except Exception:
+            continue
 
-            if name not in global_graph_data:            
-                global_graph_data[name] = [0] * 65
+    if search_term:
+        processes = [p for p in processes if search_term.lower() in p['name'].lower()]
+
+    # Create a new list for processes with speed calculation
+    processes_with_speed = []
+    for process in processes:
+        pid = process["pid"]
+        traffic = [process["Upload"], process["Download"]] # Use already extracted traffic
+        try:
+            # calculate the upload and download speeds by simply subtracting the old stats from the new stats
+            process["Upload Speed"] = traffic[0] - global_df.at[pid, "Upload"]
+            process["Download Speed  "] = traffic[1] - global_df.at[pid, "Download"]
+        except (KeyError, AttributeError):
+            # If it's the first time running this function, then the speed is the current traffic
+            # You can think of it as if old traffic is 0
+            process["Upload Speed"] = traffic[0]
+            process["Download Speed  "] = traffic[1]
+        # append the process to our processes list
+        processes_with_speed.append(process)
+
+        name = process["name"] # Get name from process dictionary
+        if name not in global_graph_data:
+            global_graph_data[name] = [0] * 65
+        # Ensure global_df exists and pid is in it before calculating data_speed
+        if global_df is not None and pid in global_df.index:
             data_speed = int( ((traffic[0] - global_df.at[pid, "Upload"]) + traffic[1] - global_df.at[pid, "Download"])/1024)
             global_graph_data[name].append(data_speed)
             if len(global_graph_data[name]) > 65:
                 global_graph_data[name].pop(0)
+        elif global_df is None: # if global_df is None, it's the first run
+             data_speed = int((traffic[0] + traffic[1]) / 1024)
+             global_graph_data[name].append(data_speed)
+             if len(global_graph_data[name]) > 65:
+                global_graph_data[name].pop(0)
 
-        except Exception:
-            continue
+
     # construct our Pandas DataFrame
-    df = pd.DataFrame(processes)
+    df = pd.DataFrame(processes_with_speed)
     try:
         # set the PID as the index of the dataframe
         df = df.set_index("pid")
@@ -147,23 +183,19 @@ def print_pid2traffic():
     except KeyError as e:
         # when dataframe is empty again
         pass
-    #clear the screen based on your OS
-
-    if global_df is None:
-        os.system("cls") if "nt" in os.name else os.system("clear")
-
-    elif global_df.size != df.size:
-        os.system("cls") if "nt" in os.name else os.system("clear")
-
-
-    for i in range(40):
-        print("\r\033[3A\033[3A")
+    # The old screen clearing logic and the print("\r\033[3A\033[3A") loop are removed
+    # as we now do a full clear at the beginning and print the prompt.
 
     print("💎 \033[1mCrystalWire\033[0m ✨ 1.0 \033[3mhttp://github.com/rpfilomeno/crystalwire\033[0m\n")
 
-    plot(df.head(3))
-    stat(printing_df)
-    # update the global df to our dataframe
+    # Conditional plotting and stat display to prevent errors if df is empty after filtering
+    if not df.empty:
+        plot(df.head(3))
+        stat(printing_df) # Call stat only if df is not empty
+    else:
+        print("No processes match the current filter.")
+
+    # update the global df to our dataframe for the next cycle's speed calculations
     global_df = df
 
 
@@ -219,10 +251,63 @@ def plot(df: pd.DataFrame):
 
 
 def print_stats():
-    """Simple function that keeps printing the stats"""
+    """Simple function that keeps printing the stats with interactive search"""
+    search_term = ""
+    mode = "normal"  # "normal" or "search"
+    # input_buffer = "" # search_term will serve as the buffer in search mode
+
     while is_program_running:
+        key = None
+        # Non-blocking key read using select
+        # Check if there's input ready on stdin within a very short timeout (0.05 seconds)
+        # This makes readkey effectively non-blocking for the loop's iteration
+        # Note: select.select is POSIX specific.
+        # For Windows, different mechanisms like msvcrt.kbhit() would be needed
+        # readchar aims to abstract this, but for true non-blocking periodic checks,
+        # this pattern is common on POSIX.
+        if sys.stdin in select.select([sys.stdin], [], [], 0.05)[0]:
+            key = readchar.readkey()
+
+        if key:
+            if mode == "normal":
+                if key == 'f':
+                    mode = "search"
+                    search_term = ""  # Clear previous search term
+                    # Consider clearing screen here if print_pid2traffic doesn't handle it
+                    # os.system("cls") if "nt" in os.name else os.system("clear")
+            elif mode == "search":
+                if key == readchar.key.ESC:
+                    mode = "normal"
+                    search_term = "" # Clear search term when exiting search mode
+                    # Consider clearing screen here
+                    # os.system("cls") if "nt" in os.name else os.system("clear")
+                elif key == readchar.key.BACKSPACE:
+                    search_term = search_term[:-1]
+                elif key == readchar.key.ENTER: # Optional: finalize search on Enter
+                    mode = "normal"
+                    # Keep search_term for filtering, but switch mode
+                elif len(key) == 1 and key.isprintable():
+                    search_term += key
+
+        active_search_term_for_filtering = None
+        # prompt_display_term is the text shown in the search bar, including the cursor simulation
+        # search_term is the actual term used for filtering
+
+        prompt_text_for_display = ""
+
+        if mode == "search":
+            active_search_term_for_filtering = search_term
+            prompt_text_for_display = search_term
+        elif mode == "normal" and search_term: # Normal mode but with a filter applied
+            active_search_term_for_filtering = search_term
+            prompt_text_for_display = search_term # Show the active filter
+
+        print_pid2traffic(
+            search_term=active_search_term_for_filtering,
+            current_mode=mode,
+            display_search_term=prompt_text_for_display
+        )
         time.sleep(1)
-        print_pid2traffic()
 
 
 if __name__ == "__main__":
