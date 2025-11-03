@@ -132,7 +132,7 @@ def print_pid2traffic():
         pass
     # make another copy of the dataframe just for fancy printing
     printing_df = df.copy()
-    printing_df = printing_df.head(10)
+    printing_df = printing_df.head(5)
 
     try:
         # apply the function get_size to scale the stats like '532.6KB/s', etc.

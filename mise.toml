@@ -12,3 +12,6 @@ run = "uv pip install -r requirements.txt"
 [tasks.run]
 description = "Run the application"
 run = "python -m crystalwire.main "
+
+[tools]
+python = "3.13.1"
