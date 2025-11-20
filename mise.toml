@@ -1,13 +1,13 @@
 [env]
 # Use the project name derived from the current directory
 PROJECT_NAME = "{{ config_root | basename }}"
-
 # Automatic virtualenv activation
 _.python.venv = { path = ".venv", create = true }
+
 [tasks.install]
 description = "Install dependencies"
 alias = "i"
-run = "uv pip install -r requirements.txt"
+run = "uv sync --all-packages --all-extras --all-groups"
 
 [tasks.run]
 description = "Run the application"
